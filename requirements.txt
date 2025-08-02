@@ -1,0 +1,4 @@
+stripe
+fastapi
+uvicorn
+python-dotenv
