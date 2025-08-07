@@ -8,10 +8,13 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 # Crear cliente
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
+SUPABASE_EMAIL = os.environ.get("SUPABASE_EMAIL")
+SUPABASE_PASSWORD = os.environ.get("SUPABASE_PASSWORD")
 # 🔹 Autenticación con RLS
 auth_res = supabase.auth.sign_in_with_password({
-    "email": "leduvelasco@gmail.com",
-    "password": "162716"
+    "email": SUPABASE_EMAIL,
+    "password": SUPABASE_PASSWORD
 })
 
 
