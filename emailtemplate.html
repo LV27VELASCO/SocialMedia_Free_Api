@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <title>Email</title>
+</head>
+<body>
+    <section class="max-w-2xl px-6 py-8 mx-auto bg-white dark:bg-gray-900">
+        <header>
+            <a href="#">
+                <img class="w-auto h-7 sm:h-8" src="https://gyoipqfcjidsdyxittfx.supabase.co/storage/v1/object/sign/seguidoresgratis/image-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jN2Y3M2Q3Zi1iNDU0LTQyMWQtYTZmZC0zZGFiMjM0YzJjZjAiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJzZWd1aWRvcmVzZ3JhdGlzL2ltYWdlLXJlbW92ZWJnLXByZXZpZXcucG5nIiwiaWF0IjoxNzU0NTA0NzEwLCJleHAiOjE3ODYwNDA3MTB9.bdREO5y-thddA3ncVrDOJ6FDoY1fbJworjOlhnx0o5c" alt="">
+            </a>
+        </header>
+    
+        <main class="mt-8">
+            <h2 class="text-gray-700 dark:text-gray-200">¡Hola {{ name }}!,</h2>
+    
+            <p class="mt-2 leading-loose text-gray-600 dark:text-gray-300">
+                Estas son tus credenciales para acceder a FollowerBoost:
+            </p>
+    
+            <div class="w-fit px-5 py-2 border rounded-md bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white m-auto flex flex-col items-center mt-4 gap-x-4">
+                <p class="text-base font-semibold"><span class="font-bold">Email:</span> {{email}}</p>
+                <p class="text-base font-semibold"><span class="font-bold">Password:</span> {{password}}</p>
+            </div>
+    
+            <p class="mt-4 leading-loose text-gray-600 dark:text-gray-300 pb-5">
+                Si te encuentras preparado para llevar tus cuentas a otro nivel puedes hacerlo dando click en el siguiente botón.
+            </p>
+            
+            <a href="https://fullgeoclone.netlify.app/login" class="px-6 py-2 mt-6 text-sm font-medium tracking-wider  capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white">
+                Iniciar Sesión
+            </a>
+            
+            <p class="mt-8 text-gray-600 dark:text-gray-300">
+                Gracias, <br>
+                FollowerBoost Team
+            </p>
+        </main>
+        <footer class="mt-8">
+            <p class="text-gray-500 dark:text-gray-400">
+                Este correo email fue enviado por <span class="text-blue-600">contact&#64;FollowerBoost.com</span>. 
+                Si prefieres no recibir este tipo de correo electrónico, puedes <a href="#" class="text-blue-600 hover:underline dark:text-blue-400">darte de baja</a> o gestionar tus preferencias de correo.
+            </p>
+            <p class="mt-3 text-gray-500 dark:text-gray-400">© 2025 FollowerBoost. Todos los derechos reservados.</p>
+        </footer>
+    </section>
+</body>
+</html>

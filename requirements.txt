@@ -2,3 +2,7 @@ stripe
 fastapi
 uvicorn
 python-dotenv
+Jinja2
+supabase
+python-jose[cryptography]
+passlib[bcrypt]
