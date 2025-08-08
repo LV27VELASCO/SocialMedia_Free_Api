@@ -1,11 +1,9 @@
-from typing import Any, Dict
 from fastapi import Depends, FastAPI, HTTPException, Request, requests
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import stripe
 import os
 from datetime import datetime
-from supabase import create_client, Client, SupabaseAuthClient
 from services import (
     create_user,
     send_order,
@@ -149,6 +147,7 @@ async def validate_pay_method(req: Request):
 
 
 @app.get("/dashboard")
-async def dashboard(id_user: dict = Depends(get_current_user)):
+async def dashboard(id_user: str = Depends(get_current_user)):
+    print(id_user)
     data_user = get_data_user(id_user)
     return data_user

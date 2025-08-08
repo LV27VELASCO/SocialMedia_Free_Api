@@ -1,8 +1,7 @@
 import os
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError
-import jwt
+from jwt import ExpiredSignatureError, PyJWTError, decode, encode
 import requests
 import smtplib
 from datetime import datetime, timedelta
@@ -227,18 +226,20 @@ def create_jwt_token(user_data: dict, expires_delta: timedelta = None):
     }
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("id")
         if user_id is None:
             raise HTTPException(status_code=401, detail="Token inválido")
         return user_id
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except PyJWTError:
+        raise HTTPException(status_code=401, detail="Token inválido")
     
 def get_data_user(id:int):
     response_base = supabase.table("Orders").select("order_id,social,service,quantity,created_at").eq("client_id", id).execute()
