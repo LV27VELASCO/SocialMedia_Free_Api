@@ -23,3 +23,10 @@ class LoginSuccessResponse(BaseModel):
 class LoginErrorResponse(BaseModel):
     success: bool = False
     message: str
+
+class TokenResponse(BaseModel):
+    token: str
+    message: str
+
+class NewOrderResponse(BaseModel):
+    message: str

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import stripe
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from services import (
     create_user,
     send_order,
@@ -12,12 +12,17 @@ from services import (
     insert_card_used,
     validate_login,
     create_jwt_token,
+    create_jwt_auth,
     get_current_user,
     get_data_user,
+    get_data_user_completed,
+    validate_token,
+    consult_user_by_email,
+    send_email,
     CODE_SERVICE,
     ACTION_INDEX
 )
-from schemas import LoginSuccessResponse, ValidatePayResponse
+from schemas import LoginSuccessResponse, NewOrderResponse, TokenResponse, ValidatePayResponse
 import config
 from db import supabase, jwt_token, get_client
 
@@ -26,8 +31,11 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+     allow_origins=[
+        "http://localhost:4321",
+        "https://socialmedia-free-api.onrender.com"
+    ],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -36,11 +44,10 @@ app.add_middleware(
 #Stripe
 stripe.api_key = os.environ.get("SECRET_KEY")
 
-# Base de datos simulada en memoria
-used_cards = []
+
 
 @app.post("/validate-pay-method")
-async def validate_pay_method(req: Request):
+async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
     data = await req.json()
     payment_method_id = data.get("paymentMethodId")
     name = data.get("name")
@@ -80,13 +87,6 @@ async def validate_pay_method(req: Request):
         # Reembolso inmediato
         stripe.Refund.create(payment_intent=payment_intent.id)
 
-        # Registrar tarjeta usada
-        used_cards.append({
-            "fingerprint": fingerprint,
-            "month": now.month,
-            "year": now.year
-        })
-
         #Obtenemos PriceId
         priceId = os.environ.get("PRICE_ID")
 
@@ -109,12 +109,12 @@ async def validate_pay_method(req: Request):
         code_service = CODE_SERVICE[social][ACTION_INDEX[action]]
 
         # Llamar a la función que envía la orden
-        result_order = send_order(code_service=code_service, link=url, quantity=500)
+        result_order = send_order(code_service, url, 500)
 
         order_id= result_order.get("order_id")
 
         # guardar orden con codigo usuario
-        result_insert_order = insert_order(client_id,order_id, jwt_token, social, action, 500)
+        result_insert_order = insert_order(client_id,order_id, jwt_token, social, action, 500,url)
 
         response = ValidatePayResponse(
             success=True,
@@ -126,7 +126,6 @@ async def validate_pay_method(req: Request):
         return JSONResponse(content=response.model_dump(), status_code=200)
     except Exception as e:
         return {"error": str(e)}
-    
 
 @app.post("/login")
 async def validate_pay_method(req: Request):
@@ -143,11 +142,107 @@ async def validate_pay_method(req: Request):
         )
      else:
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
-     
-
 
 @app.get("/dashboard")
-async def dashboard(id_user: str = Depends(get_current_user)):
-    print(id_user)
-    data_user = get_data_user(id_user)
+async def dashboard(id_client: str = Depends(get_current_user)):
+    data_user = get_data_user(id_client)
     return data_user
+
+@app.get("/new-order")
+async def new_order(id_client: str = Depends(get_current_user)):
+    try:
+        data_user = get_data_user_completed(id_client)
+        # si no tiene  error
+        if not data_user:
+            response = NewOrderResponse(
+                message="No hay órdenes."
+            )
+            return JSONResponse(content=response.model_dump(), status_code=404)
+        
+        if len(data_user) > 3:
+            # Si tiene mas de 3 registros no hará mas
+            response = NewOrderResponse(
+                message="Limite de seguidores alcanzado."
+            )
+            return JSONResponse(content=response.model_dump(), status_code=404)
+
+        fechas = [datetime.fromisoformat(item["created_at"]) for item in data_user]
+        max_fecha = max(fechas)
+
+        ahora = datetime.now(timezone.utc)  # Ahora aware en UTC
+        diferencia = ahora - max_fecha
+
+        if diferencia > timedelta(weeks=1):
+            print("ok")
+            print(data_user)
+            social = data_user[0]["social"]
+            action = data_user[0]["service"]
+            url = data_user[0]["url"]
+            quantity = data_user[0]["quantity"]
+            print("ok2")
+            # Obtener el código de servicio correspondiente
+            code_service = CODE_SERVICE[social][ACTION_INDEX[action]]
+
+            result_order = send_order(code_service, url, quantity)
+            order_id= result_order.get("order_id")
+
+            # guardar orden con codigo usuario
+            result_insert_order = insert_order(id_client,order_id, jwt_token, social, action, quantity,url)
+            response = NewOrderResponse(
+                message="Orden generada con éxito!"
+            )
+            return JSONResponse(content=response.model_dump(), status_code=200)
+        else:
+            response = NewOrderResponse(
+                message="Aun no tienes una semana desde tu ultima orden."
+            )
+            return JSONResponse(content=response.model_dump(), status_code=404)
+    except Exception as e:
+        response = NewOrderResponse(
+                message="Ocurrió un error inesperado, validar mas tarde."
+            )
+        return JSONResponse(content=response.model_dump(), status_code=404)
+
+@app.get("/token")
+async def token():
+    try:
+        token = create_jwt_auth()
+        response = TokenResponse(
+                    message="Inicio de sesión exitoso",
+                    token=token,
+        )
+        return JSONResponse(content=response.model_dump(), status_code=200)
+    except:
+        response = TokenResponse(
+                    message="Ocurrió un error",
+                    token='',
+        )
+        return JSONResponse(content=response.model_dump(), status_code=400)
+
+@app.post("/recovery-password")
+async def recovery_password(
+    req: Request, exp: str = Depends(validate_token)):
+    data = await req.json()
+    email = data.get("email", "").strip()
+    try:
+       data_user = consult_user_by_email(email)
+       if not data_user:
+            response = NewOrderResponse(
+                message="Usuario no existe."
+            )
+            return JSONResponse(content=response.model_dump(), status_code=404)
+       
+
+       customer_name = data_user[0]["name"]
+       customer_email = data_user[0]["email"]
+       customer_password = data_user[0]["password"]
+       send_email(customer_name, customer_email, customer_password)
+       response = NewOrderResponse(
+                message="Contraseña enviada con éxito, por favor revisar email."
+            )
+       return JSONResponse(content=response.model_dump(), status_code=200)
+    except Exception as e:
+        response = NewOrderResponse(
+                 message="Ocurrió un error inesperado, validar mas tarde."
+             )
+        return JSONResponse(content=response.model_dump(), status_code=404)

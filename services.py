@@ -31,7 +31,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 # Configuración del JWT
 SECRET_KEY = os.environ.get("SECRET_JWT")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS2_TOKEN_EXPIRE_MINUTES=10
+ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
 def generate_password(length: int = 12) -> str:
     """Genera una contraseña aleatoria segura."""
@@ -154,7 +155,7 @@ def build_template(name: str, email: str, password: str) -> str:
     template = env.get_template('emailtemplate.html')
     return template.render({"name": name, "email": email, "password": password})
 
-def insert_order(client_id:str, order_id:str, jwt_token:str, social:str, service: str, quantity:int):
+def insert_order(client_id:str, order_id:str, jwt_token:str, social:str, service: str, quantity:int, url: str):
     client_supabase = get_client(jwt_token)
     user_id = client_supabase.auth.get_user().user.id
     insert_res = client_supabase.table("Orders").insert({
@@ -163,6 +164,7 @@ def insert_order(client_id:str, order_id:str, jwt_token:str, social:str, service
                 "social": social,
                 "service": service,
                 "quantity": quantity,
+                "url":url.strip(),
                 "user_id":user_id
             }).execute()
     
@@ -219,7 +221,6 @@ def validate_login(email: str, password: str) -> dict | bool:
     
     return False
 
-
 def create_jwt_token(user_data: dict, expires_delta: timedelta = None):
     to_encode = {
         "id": str(user_data["id"])
@@ -228,6 +229,10 @@ def create_jwt_token(user_data: dict, expires_delta: timedelta = None):
     to_encode.update({"exp": expire})
     return encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+def create_jwt_auth(expires_delta: timedelta = None):
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS2_TOKEN_EXPIRE_MINUTES))
+    to_encode = {"exp": expire}
+    return encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -241,7 +246,30 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except PyJWTError:
         raise HTTPException(status_code=401, detail="Token inválido")
     
+def validate_token(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        exp: str = payload.get("exp")
+        if exp is None:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        return exp
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except PyJWTError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+    
 def get_data_user(id:int):
     response_base = supabase.table("Orders").select("order_id,social,service,quantity,created_at").eq("client_id", id).execute()
     
     return response_base.data
+
+def get_data_user_completed(id:int):
+    response_base = supabase.table("Orders").select("order_id,social,service,quantity,created_at,url").eq("client_id", id).execute()
+    return response_base.data
+
+def consult_user_by_email(email: str):
+    response = supabase.table("Client").select("name,email,password") \
+        .eq("email", email) \
+        .limit(1) \
+        .execute()
+    return response.data
