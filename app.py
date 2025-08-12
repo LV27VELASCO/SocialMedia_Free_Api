@@ -128,7 +128,7 @@ async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
         return {"error": str(e)}
 
 @app.post("/login")
-async def validate_pay_method(req: Request):
+async def login(req: Request, exp: str = Depends(validate_token)):
      data = await req.json()
      email = data.get("email", "").strip()
      password = data.get("password", "").strip()
@@ -164,7 +164,7 @@ async def new_order(id_client: str = Depends(get_current_user)):
             response = NewOrderResponse(
                 message="Limite de seguidores alcanzado."
             )
-            return JSONResponse(content=response.model_dump(), status_code=404)
+            return JSONResponse(content=response.model_dump(), status_code=200)
 
         fechas = [datetime.fromisoformat(item["created_at"]) for item in data_user]
         max_fecha = max(fechas)
