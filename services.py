@@ -66,6 +66,7 @@ def create_user(customer_name: str, customer_email: str, jwt_token: str):
             if not update_client_password(client_supabase, client_id, customer_password):
                 return CreateUserOut(status=False, message="Error al actualizar usuario").dict(), 500
 
+            print("ENVIANDO CONTRASEÑA")
             send_email(customer_name, customer_email, customer_password)
             return CreateUserOut(status=True, message="Contraseña actualizada", client_id=client_id).dict(), 200
 
@@ -134,19 +135,26 @@ def send_email(name: str, email: str, password: str):
     smtp_server = os.environ.get("SMTP_SERVER")
     smtp_user = os.environ.get("SMTP_USER")
     smtp_password = os.environ.get("PASSWORD_APLICATION")
+    smtp_port = int(os.environ.get("SMTP_PORT"))
 
     msg = MIMEMultipart()
     msg['From'] = smtp_user
     msg['To'] = email
-    msg['Subject'] = "FollowBoost Credenciales"
+    msg['Subject'] = os.environ.get("SUBJECT_MAIL")
     msg.attach(MIMEText(htmlContent, 'html'))
 
     try:
-        with smtplib.SMTP(smtp_server, 587) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, msg['To'], msg.as_string())
-        print("Correo enviado exitosamente.")
+        if(smtp_port>500):
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, msg['To'], msg.as_string())
+                print("Correo enviado exitosamente.")
+        else:
+            with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, email, msg.as_string())
+                print("Correo enviado exitosamente.")
     except Exception as e:
         print(f"Error al enviar el correo: {e}")
 
