@@ -42,7 +42,7 @@ app.add_middleware(
 
 
 #Stripe
-stripe.api_key = os.environ.get("SECRET_KEY")
+stripe.api_key = os.environ.get("SECRET_KEY_STRIPE")
 
 
 
@@ -88,7 +88,7 @@ async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
         stripe.Refund.create(payment_intent=payment_intent.id)
 
         #Obtenemos PriceId
-        priceId = os.environ.get("PRICE_ID")
+        priceId = os.environ.get("PRICE_ID_STRIPE")
 
         # Crear suscripción con trial de 14 días
         subscription = stripe.Subscription.create(
