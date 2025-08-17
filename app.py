@@ -53,6 +53,7 @@ async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
     data = await req.json()
     payment_method_id = data.get("paymentMethodId")
     name = data.get("name")
+    cardName = data.get("cardName")
     email = data.get("email")
     social = data.get("socialMedia")
     url = data.get("url")
@@ -71,7 +72,8 @@ async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
         
         # Crear cliente y asociar método de pago
         customer = stripe.Customer.create(
-            email=email,
+            name=cardName.strip().lower(),
+            email=email.strip().lower(),
             payment_method=payment_method_id,
             invoice_settings={"default_payment_method": payment_method_id},
         )
