@@ -33,7 +33,8 @@ app.add_middleware(
     CORSMiddleware,
      allow_origins=[
         "http://localhost:4321",
-        "https://weeklysocial.es"
+        "https://weeklysocial.es",
+        "https://www.weeklysocial.es"
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
