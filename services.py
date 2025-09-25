@@ -25,6 +25,11 @@ ACTION_INDEX = {
     "views": 2
 }
 
+URL_SERVICE = {
+    "instagram": "https://www.instagram.com/",
+    "tiktok": "https://www.tiktok.com/@"
+}
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
@@ -281,3 +286,18 @@ def consult_user_by_email(email: str):
         .limit(1) \
         .execute()
     return response.data
+
+def consult_product(plataform: str, quantity:str) -> bool:
+    response_base = supabase.table("Products") \
+        .select("price") \
+        .eq("plataform", plataform) \
+        .eq("quantity", quantity) \
+        .execute()
+    
+    if not response_base.data:
+        return ""  # No existe el registro
+    
+    price = response_base.data[0]["price"]
+    
+    # ✅ True si fue actualizado hace menos de un mes
+    return price

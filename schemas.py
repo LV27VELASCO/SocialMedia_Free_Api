@@ -9,7 +9,7 @@ class CreateUserOut(BaseModel):
 class ValidatePayResponse(BaseModel):
     success: bool
     message: str
-    subscription_id: Optional[str] = None
+    url:str
     order_id: Optional[str] = None
 
 
