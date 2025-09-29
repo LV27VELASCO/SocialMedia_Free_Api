@@ -35,8 +35,8 @@ app.add_middleware(
     CORSMiddleware,
      allow_origins=[
         "http://localhost:4321",
-        "https://weeklysocial.es",
-        "https://www.weeklysocial.es"
+        "https://wklysocial.com",
+        "https://www.wklysocial.com"
     ],
     allow_methods=["GET", "POST","OPTIONS"],
     allow_headers=["*"],
@@ -260,8 +260,6 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
     email = data.get("email")
     platform = data.get("platform")
     quantity = data.get("quantity")
-
-    print(cardName,username,email,platform,quantity)
 
     try:
         # Recuperar fingerprint
