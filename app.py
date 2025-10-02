@@ -35,8 +35,8 @@ app.add_middleware(
     CORSMiddleware,
      allow_origins=[
         "http://localhost:4321",
-        "https://trendyup.com",
-        "https://www.trendyup.com"
+        "https://trendyup.es",
+        "https://www.trendyup.es"
     ],
     allow_methods=["GET", "POST","OPTIONS"],
     allow_headers=["*"],
