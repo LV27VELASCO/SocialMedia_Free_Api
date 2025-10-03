@@ -1,4 +1,5 @@
-from fastapi import Depends, FastAPI, HTTPException, Request, requests
+from fastapi import Depends, FastAPI, HTTPException, Request
+import requests
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import stripe
@@ -347,3 +348,47 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
         return JSONResponse(content=response.model_dump(), status_code=200)
     except Exception as e:
         return {"error": str(e)}
+    
+
+@app.post("/contact-mesagge")
+async def recovery_password(
+    req: Request, exp: str = Depends(validate_token)):
+    data = await req.json()
+    name = data.get("name")
+    email = data.get("email")
+    textarea = data.get("textarea")
+    try:
+       url = os.environ.get("EMAILJS_URL")
+       service_id = os.environ.get("SERVICE_ID")
+       template_id = os.environ.get("TEMPLATE_ID")
+       user_id = os.environ.get("USER_ID")
+
+       payload = {
+            "service_id": service_id,
+            "template_id": template_id,
+            "user_id": user_id,   # tu Public Key de EmailJS
+            "template_params": {
+                "name_user": name,
+                "message_user": textarea,
+                "email_user": email
+            }
+        }
+       headers = { "Content-Type": "application/json" }
+       
+       response = requests.post(url, json=payload, headers=headers)
+       if response.status_code == 200:
+            response = NewOrderResponse(
+                 message="Mensaje enviado con éxito."
+             )
+            return JSONResponse(content=response.model_dump(), status_code=200)
+       else:
+            response = NewOrderResponse(
+                 message="Ocurrió un error al enviar el mensaje, intentarlo más tarde."
+             )
+            return JSONResponse(content=response.model_dump(), status_code=400)
+    except Exception as e:
+        response = NewOrderResponse(
+            message=f"Ocurrió un error inesperado, validar más tarde. {e}"
+        )
+        return JSONResponse(content=response.model_dump(), status_code=404)
+    
