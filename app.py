@@ -49,8 +49,8 @@ app.add_middleware(
 
 #Stripe
 stripe.api_key = os.environ.get("SECRET_KEY_STRIPE")
-
-
+#resend
+resend.api_key =os.environ.get("RESEND_API_KEY")
 
 @app.post("/validate-pay-method")
 async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
@@ -395,38 +395,3 @@ async def recovery_password(
             message=f"Ocurrió un error inesperado, validar más tarde. {e}"
         )
         return JSONResponse(content=response.model_dump(), status_code=404)
-    
-
-@app.post("/send-email")
-async def send_email(req: Request):
-    data = await req.json()
-    name = data.get("name")
-    email = data.get("email")
-    password = data.get("password")
-
-    htmlContent = build_template(name, email, password)
-
-    try:
-        # Preparar parámetros para Resend
-        params: resend.Emails.SendParams = {
-            "from": f"{os.environ.get('FROM_NAME')} <{os.environ.get('FROM_EMAIL')}>",
-            "to": [email],
-            "subject": os.environ.get("SUBJECT_MAIL"),
-            "html": htmlContent,
-        }
-
-        # Enviar email
-        email_response = resend.Emails.send(params)
-
-        response = NewOrderResponse(message=f"Correo enviado a {email}, id: {email_response.get("id")}")
-        return JSONResponse(content=response.model_dump(), status_code=200)
-
-    except Exception as e:
-        print(e)
-        response = NewOrderResponse(message="Error al enviar correo: {e}")
-        return JSONResponse(content=response.model_dump(), status_code=500)
-
-def build_template(name: str, email: str, password: str) -> str:
-    env = Environment(loader=FileSystemLoader('.'))
-    template = env.get_template('emailtemplate.html')
-    return template.render({"name": name, "email": email, "password": password})

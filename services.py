@@ -33,7 +33,6 @@ URL_SERVICE = {
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-resend.api_key =os.environ.get("RESEND_API_KEY")
 
 # Configuración del JWT
 SECRET_KEY = os.environ.get("SECRET_JWT")
