@@ -29,9 +29,7 @@ from schemas import LoginSuccessResponse, NewOrderResponse, TokenResponse, Valid
 import config
 from db import supabase, refresh_if_needed, get_client
 from jinja2 import Environment, FileSystemLoader
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-import smtplib
+import resend
 
 app = FastAPI()
 
@@ -405,41 +403,28 @@ async def send_email(req: Request):
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
-    htmlContent = build_template(name, email, password)
-    smtp_server = os.environ.get("SMTP_SERVER")
-    smtp_user = os.environ.get("SMTP_USER")
-    smtp_password = os.environ.get("PASSWORD_APLICATION")
-    smtp_port = int(os.environ.get("SMTP_PORT"))
 
-    msg = MIMEMultipart()
-    msg['From'] = smtp_user
-    msg['To'] = email
-    msg['Subject'] = os.environ.get("SUBJECT_MAIL")
-    msg.attach(MIMEText(htmlContent, 'html'))
+    htmlContent = build_template(name, email, password)
 
     try:
-        if(smtp_port>500):
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, msg['To'], msg.as_string())
-                response = NewOrderResponse(
-                 message=f"Correo enviado {smtp_user}"
-             )
-            return JSONResponse(content=response.model_dump(), status_code=200)
-        else:
-            with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, email, msg.as_string())
-                response = NewOrderResponse(
-                 message=f"Correo enviado {smtp_user}"
-             )
-            return JSONResponse(content=response.model_dump(), status_code=200)
+        # Preparar parámetros para Resend
+        params: resend.Emails.SendParams = {
+            "from": f"{os.environ.get('FROM_NAME')} <{os.environ.get('FROM_EMAIL')}>",
+            "to": [email],
+            "subject": os.environ.get("SUBJECT_MAIL"),
+            "html": htmlContent,
+        }
+
+        # Enviar email
+        email_response = resend.Emails.send(params)
+
+        response = NewOrderResponse(message=f"Correo enviado a {email}, id: {email_response.get("id")}")
+        return JSONResponse(content=response.model_dump(), status_code=200)
+
     except Exception as e:
-        response = NewOrderResponse(
-                 message=f"Error al enviar {e}"
-             )
-        return JSONResponse(content=response.model_dump(), status_code=404)
+        print(e)
+        response = NewOrderResponse(message="Error al enviar correo: {e}")
+        return JSONResponse(content=response.model_dump(), status_code=500)
 
 def build_template(name: str, email: str, password: str) -> str:
     env = Environment(loader=FileSystemLoader('.'))

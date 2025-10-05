@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional
 from db import supabase, get_client
 from schemas import CreateUserOut
 import config
+import resend
 
 # Variables globales
 CODE_SERVICE = {
@@ -32,6 +33,7 @@ URL_SERVICE = {
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
+resend.api_key =os.environ.get("RESEND_API_KEY")
 
 # Configuración del JWT
 SECRET_KEY = os.environ.get("SECRET_JWT")
@@ -137,31 +139,22 @@ def send_order(code_service: str, link: str, quantity: int = 1) -> Dict[str, Any
 
 def send_email(name: str, email: str, password: str):
     htmlContent = build_template(name, email, password)
-    smtp_server = os.environ.get("SMTP_SERVER")
-    smtp_user = os.environ.get("SMTP_USER")
-    smtp_password = os.environ.get("PASSWORD_APLICATION")
-    smtp_port = int(os.environ.get("SMTP_PORT"))
-
-    msg = MIMEMultipart()
-    msg['From'] = smtp_user
-    msg['To'] = email
-    msg['Subject'] = os.environ.get("SUBJECT_MAIL")
-    msg.attach(MIMEText(htmlContent, 'html'))
 
     try:
-        if(smtp_port>500):
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, msg['To'], msg.as_string())
-                print("Correo enviado exitosamente.")
-        else:
-            with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, email, msg.as_string())
-                print("Correo enviado exitosamente.")
+        # Preparar parámetros para Resend
+        params: resend.Emails.SendParams = {
+            "from": f"{os.environ.get('FROM_NAME')} <{os.environ.get('FROM_EMAIL')}>",
+            "to": [email],
+            "subject": os.environ.get("SUBJECT_MAIL"),
+            "html": htmlContent,
+        }
+
+        # Enviar email
+        email_response = resend.Emails.send(params)
+        print("Correo enviado")
+
     except Exception as e:
-        print(f"Error al enviar el correo: {e}")
+        print(e)
 
 def build_template(name: str, email: str, password: str) -> str:
     env = Environment(loader=FileSystemLoader('.'))

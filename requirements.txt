@@ -4,3 +4,4 @@ uvicorn
 python-dotenv
 Jinja2
 supabase
+resend
