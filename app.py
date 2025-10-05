@@ -27,7 +27,7 @@ from services import (
 )
 from schemas import LoginSuccessResponse, NewOrderResponse, TokenResponse, ValidatePayResponse
 import config
-from db import supabase, jwt_token, get_client
+from db import supabase, refresh_if_needed, get_client
 
 
 app = FastAPI()
@@ -106,6 +106,8 @@ async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
             expand=["latest_invoice.payment_intent"]
         )
 
+        
+        jwt_token = refresh_if_needed()
         insert_card = insert_card_used(fingerprint,jwt_token)
 
         user_created_response, status_code = create_user(name, email, jwt_token)
@@ -130,7 +132,7 @@ async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
         #     order_id=str(order_id),
         #     )
 
-        return JSONResponse(content=response.model_dump(), status_code=200)
+        return JSONResponse(content="response.model_dump()", status_code=200)
     except Exception as e:
         return {"error": str(e)}
 
@@ -190,7 +192,7 @@ async def new_order(id_client: str = Depends(get_current_user)):
 
             result_order = send_order(code_service, url, quantity)
             order_id= result_order.get("order_id")
-
+            jwt_token = refresh_if_needed()
             # guardar orden con codigo usuario
             result_insert_order = insert_order(id_client,order_id, jwt_token, social, action, quantity,url)
             response = NewOrderResponse(
@@ -283,6 +285,8 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
             invoice_settings={"default_payment_method": payment_method_id},
         )
 
+        jwt_token = refresh_if_needed()
+        
         # Si la tarjeta ya fue usada → compra normal
         if card_used:
             payment_intent = stripe.PaymentIntent.create(
@@ -348,7 +352,6 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
         return JSONResponse(content=response.model_dump(), status_code=200)
     except Exception as e:
         return {"error": str(e)}
-    
 
 @app.post("/contact-mesagge")
 async def recovery_password(
