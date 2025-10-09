@@ -276,43 +276,73 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
         price = consult_product(platform,quantity)
 
         if price == "":
-            return JSONResponse(content="Bad Request: price no válido", status_code=400)
-
-        # Crear cliente y asociar método de pago
-        customer = stripe.Customer.create(
-            name=cardName,
-            email=email,
-            payment_method=payment_method_id,
-            invoice_settings={"default_payment_method": payment_method_id},
-        )
+            return JSONResponse(content={"error": "price no valido"}, status_code=400)
 
         jwt_token = refresh_if_needed()
         
-        # Si la tarjeta ya fue usada → compra normal
+        # Si la tarjeta ya fue usada  y no ha usado prueba gratuita → compra normal
         if card_used:
-            payment_intent = stripe.PaymentIntent.create(
-                amount=price,  # aquí ajusta el importe real de la compra
-                currency="eur",
-                customer=customer.id,
-                payment_method=payment_method_id,
-                confirm=True,
-                return_url=os.environ.get("URL_SUCCESS")
-            )
+            if price == 0:
+                # cliente usó prueba gratuita
+                return JSONResponse(content={"error": "Lo sentimos, ya has usado tu prueba gratuita"}, status_code=400)
+            else:
+                
+                # Crear cliente y asociar método de pago
+                customer = stripe.Customer.create(
+                    name=cardName,
+                    email=email,
+                    payment_method=payment_method_id,
+                    invoice_settings={"default_payment_method": payment_method_id},
+                )
+                # Realizar compra normal
+                payment_intent = stripe.PaymentIntent.create(
+                    amount=price,
+                    currency="eur",
+                    customer=customer.id,
+                    payment_method=payment_method_id,
+                    confirm=True,
+                    return_url=os.environ.get("URL_SUCCESS")
+                )
         # Si la tarjeta NO ha sido usada → guardar en BD + compra de prueba + suscripción
         else:
             # Guardar tarjeta en BD
             insert_card = insert_card_used(fingerprint, jwt_token)
-
-            payment_intent = stripe.PaymentIntent.create(
-                amount=price,  # 1€ en céntimos
-                currency="eur",
-                customer=customer.id,
-                payment_method=payment_method_id,
-                confirm=True,
-                return_url=os.environ.get("URL_SUCCESS")
+            
+            # Crear cliente y asociar método de pago
+            customer = stripe.Customer.create(
+                    name=cardName,
+                    email=email,
+                    payment_method=payment_method_id,
+                    invoice_settings={"default_payment_method": payment_method_id},
             )
 
-            # No hay reembolso, se deja el cobro
+            if price == 0:
+                
+                # Seguidores gratis
+                # Cobro de prueba 1€ (100 céntimos)
+                payment_intent = stripe.PaymentIntent.create(
+                    amount=100,
+                    currency="eur",
+                    customer=customer.id,
+                    payment_method=payment_method_id,
+                    confirm=True,
+                    return_url= os.environ.get("URL_SUCCESS")  # ⚡ URL de retorno
+                )
+
+                # Reembolso inmediato
+                stripe.Refund.create(payment_intent=payment_intent.id)
+            else:
+                
+                #se crea el pago normal
+                payment_intent = stripe.PaymentIntent.create(
+                    amount=price,  # precio
+                    currency="eur",
+                    customer=customer.id,
+                    payment_method=payment_method_id,
+                    confirm=True,
+                    return_url=os.environ.get("URL_SUCCESS")
+                )
+
             # Obtener PriceId
             priceId = os.environ.get("PRICE_ID_STRIPE")
 
@@ -325,7 +355,6 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
                 expand=["latest_invoice.payment_intent"]
             )
 
-        
         user_created_response, status_code = create_user(cardName, email, jwt_token)
 
         client_id = user_created_response.get("client_id")  # Extrae el client_id del dict de respuesta
