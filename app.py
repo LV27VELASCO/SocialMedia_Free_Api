@@ -21,6 +21,7 @@ from services import (
     validate_token,
     consult_user_by_email,
     send_email,
+    unsuscribe_client,
     CODE_SERVICE,
     ACTION_INDEX,
     URL_SERVICE
@@ -420,6 +421,37 @@ async def recovery_password(
              )
             return JSONResponse(content=response.model_dump(), status_code=400)
     except Exception as e:
+        response = NewOrderResponse(
+            message=f"Ocurrió un error inesperado, validar más tarde. {e}"
+        )
+        return JSONResponse(content=response.model_dump(), status_code=404)
+
+@app.post("/unsuscribe")
+async def recovery_password(
+    req: Request, exp: str = Depends(validate_token)):
+    data = await req.json()
+    email = data.get("email")
+    try:
+       
+       if not email:
+           return JSONResponse(content={"error": "email requerido"}, status_code=400)
+       
+       jwt_token = refresh_if_needed()
+       user_unsuscribe_response, status_code = unsuscribe_client(email, jwt_token)
+       status = user_unsuscribe_response.get("status")
+       message_res = user_unsuscribe_response.get("message")
+       if status:
+           response = NewOrderResponse(
+            message=message_res
+            )
+           return JSONResponse(content=response.model_dump(), status_code=200)
+       else:
+            response = NewOrderResponse(
+            message=message_res
+            )
+            return JSONResponse(content=response.model_dump(), status_code=400)
+    except Exception as e:
+        print(e)
         response = NewOrderResponse(
             message=f"Ocurrió un error inesperado, validar más tarde. {e}"
         )

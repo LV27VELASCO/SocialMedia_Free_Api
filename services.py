@@ -293,3 +293,27 @@ def consult_product(plataform: str, quantity:str) -> bool:
     
     # ✅ True si fue actualizado hace menos de un mes
     return price
+
+def unsuscribe_client(customer_email: str, jwt_token: str):
+    client_supabase = get_client(jwt_token)
+    user_id = client_supabase.auth.get_user().user.id
+    customer_email = customer_email.lower()
+
+    try:
+        client_id = insert_unsuscribe(client_supabase,customer_email,user_id)
+        if not client_id:
+            return CreateUserOut(status=False, message="Ocurrió un error al procesar petición, intentarlo mas tarde.").dict(), 400
+        else:
+            return CreateUserOut(status=True, message="Suscripción cancelada con éxito").dict(), 200
+
+    except Exception as e:
+        print(f"[unsuscribe] Error: {e}")
+        return CreateUserOut(status=False, message="Ocurrió un error, intentarlo más tarde").dict(), 500
+    
+def insert_unsuscribe(client_supabase, email: str,user_id:str) -> Optional[int]:
+    response = client_supabase.table("Unsuscribe")\
+        .insert({
+            "email": email,
+            "user_id":user_id
+        }).execute()
+    return response.data[0]['id'] if response.data else None
