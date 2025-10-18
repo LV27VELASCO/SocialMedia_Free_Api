@@ -31,6 +31,58 @@ URL_SERVICE = {
     "tiktok": "https://www.tiktok.com/@"
 }
 
+#MENSAJE DE IDIOMAS
+MESSAGES = {
+    "success_purchase": {
+        "es": "Compra exitosa...",
+        "en": "Purchase successful...",
+        "fr": "Achat réussi...",
+        "pt": "Compra bem-sucedida..."
+    },
+    "price_invalid": {
+        "es": "Precio no válido",
+        "en": "Invalid price",
+        "fr": "Prix invalide",
+        "pt": "Preço inválido"
+    },
+    "trial_used": {
+        "es": "Lo sentimos, ya has usado tu prueba gratuita",
+        "en": "Sorry, you have already used your free trial",
+        "fr": "Désolé, vous avez déjà utilisé votre essai gratuit",
+        "pt": "Desculpe, você já usou seu teste gratuito"
+    },
+    "contact_success": {
+        "es": "Mensaje enviado con éxito.",
+        "en": "Message sent successfully.",
+        "fr": "Message envoyé avec succès.",
+        "pt": "Mensagem enviada com sucesso."
+    },
+    "contact_error": {
+        "es": "Ocurrió un error al enviar el mensaje, intentarlo más tarde.",
+        "en": "An error occurred while sending the message, please try later.",
+        "fr": "Une erreur est survenue lors de l'envoi du message, veuillez réessayer plus tard.",
+        "pt": "Ocorreu um erro ao enviar a mensagem, tente novamente mais tarde."
+    },
+    "contact_unexpected": {
+        "es": "Ocurrió un error inesperado, validar más tarde.",
+        "en": "An unexpected error occurred, please check later.",
+        "fr": "Une erreur inattendue est survenue, veuillez vérifier plus tard.",
+        "pt": "Ocorreu um erro inesperado, verifique mais tarde."
+    },
+    "email_required": {
+        "es": "Email requerido",
+        "en": "Email is required",
+        "fr": "Email requis",
+        "pt": "Email obrigatório"
+    },
+    "unsubscribe_unexpected": {
+        "es": "Ocurrió un error inesperado, validar más tarde.",
+        "en": "An unexpected error occurred, please check later.",
+        "fr": "Une erreur inattendue est survenue, veuillez vérifier plus tard.",
+        "pt": "Ocorreu um erro inesperado, verifique mais tarde."
+    }
+}
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
@@ -317,3 +369,6 @@ def insert_unsuscribe(client_supabase, email: str,user_id:str) -> Optional[int]:
             "user_id":user_id
         }).execute()
     return response.data[0]['id'] if response.data else None
+
+def get_message(key: str, locale: str = "en") -> str:
+    return MESSAGES.get(key, {}).get(locale, MESSAGES.get(key, {}).get("en", ""))

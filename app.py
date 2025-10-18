@@ -22,6 +22,7 @@ from services import (
     consult_user_by_email,
     send_email,
     unsuscribe_client,
+    get_message,
     CODE_SERVICE,
     ACTION_INDEX,
     URL_SERVICE
@@ -217,14 +218,14 @@ async def token():
     try:
         token = create_jwt_auth()
         response = TokenResponse(
-                    message="Inicio de sesión exitoso",
+                    message="Login successful",
                     token=token,
         )
         return JSONResponse(content=response.model_dump(), status_code=200)
     except:
         response = TokenResponse(
-                    message="Ocurrió un error",
-                    token='',
+                    message="An error occurred",
+                    token=''
         )
         return JSONResponse(content=response.model_dump(), status_code=400)
 
@@ -265,6 +266,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
     email = data.get("email")
     platform = data.get("platform")
     quantity = data.get("quantity")
+    locale = data.get("locale")
 
     try:
         # Recuperar fingerprint
@@ -277,7 +279,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
         price = consult_product(platform,quantity)
 
         if price == "":
-            return JSONResponse(content={"error": "price no valido"}, status_code=400)
+            return JSONResponse(content={"error": get_message("price_invalid", locale)}, status_code=400)
 
         jwt_token = refresh_if_needed()
         
@@ -285,7 +287,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
         if card_used:
             if price == 0:
                 # cliente usó prueba gratuita
-                return JSONResponse(content={"error": "Lo sentimos, ya has usado tu prueba gratuita"}, status_code=400)
+                return JSONResponse(content={"error": get_message("trial_used", locale)}, status_code=400)
             else:
                 
                 # Crear cliente y asociar método de pago
@@ -375,7 +377,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
 
         response = ValidatePayResponse(
             success=True,
-            message="Compra exitosa...",
+            message=get_message("success_purchase", locale),
             url=url,
             order_id=str("order_id"),
             )
@@ -391,6 +393,7 @@ async def recovery_password(
     name = data.get("name")
     email = data.get("email")
     textarea = data.get("textarea")
+    locale = data.get("locale")
     try:
        url = os.environ.get("EMAILJS_URL")
        service_id = os.environ.get("SERVICE_ID")
@@ -411,19 +414,13 @@ async def recovery_password(
        
        response = requests.post(url, json=payload, headers=headers)
        if response.status_code == 200:
-            response = NewOrderResponse(
-                 message="Mensaje enviado con éxito."
-             )
+            response = NewOrderResponse(message=get_message("contact_success", locale))
             return JSONResponse(content=response.model_dump(), status_code=200)
        else:
-            response = NewOrderResponse(
-                 message="Ocurrió un error al enviar el mensaje, intentarlo más tarde."
-             )
+            response = NewOrderResponse(message=get_message("contact_error", locale))
             return JSONResponse(content=response.model_dump(), status_code=400)
     except Exception as e:
-        response = NewOrderResponse(
-            message=f"Ocurrió un error inesperado, validar más tarde. {e}"
-        )
+        response = NewOrderResponse(message=get_message("contact_unexpected", locale))
         return JSONResponse(content=response.model_dump(), status_code=404)
 
 @app.post("/unsuscribe")
@@ -431,28 +428,23 @@ async def recovery_password(
     req: Request, exp: str = Depends(validate_token)):
     data = await req.json()
     email = data.get("email")
+    locale = data.get("locale")
     try:
        
        if not email:
-           return JSONResponse(content={"error": "email requerido"}, status_code=400)
+           return JSONResponse(content={"error": get_message("email_required", locale)}, status_code=400)
        
        jwt_token = refresh_if_needed()
        user_unsuscribe_response, status_code = unsuscribe_client(email, jwt_token)
        status = user_unsuscribe_response.get("status")
        message_res = user_unsuscribe_response.get("message")
        if status:
-           response = NewOrderResponse(
-            message=message_res
-            )
+           response = NewOrderResponse(message=message_res)
            return JSONResponse(content=response.model_dump(), status_code=200)
        else:
-            response = NewOrderResponse(
-            message=message_res
-            )
+            response = NewOrderResponse(message=message_res)
             return JSONResponse(content=response.model_dump(), status_code=400)
     except Exception as e:
         print(e)
-        response = NewOrderResponse(
-            message=f"Ocurrió un error inesperado, validar más tarde. {e}"
-        )
+        response = NewOrderResponse(message=get_message("unsubscribe_unexpected", locale))
         return JSONResponse(content=response.model_dump(), status_code=404)
