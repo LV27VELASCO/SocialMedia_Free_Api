@@ -282,6 +282,11 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
             return JSONResponse(content={"error": get_message("price_invalid", locale)}, status_code=400)
 
         jwt_token = refresh_if_needed()
+
+        url_base = os.environ.get("URL_BASE_SUCCESS")
+        path = os.environ.get("URL_PATH")
+
+        url_success = f"{url_base}/{locale}/{path}"
         
         # Si la tarjeta ya fue usada  y no ha usado prueba gratuita → compra normal
         if card_used:
@@ -304,7 +309,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
                     customer=customer.id,
                     payment_method=payment_method_id,
                     confirm=True,
-                    return_url=os.environ.get("URL_SUCCESS")
+                    return_url = url_success
                 )
         # Si la tarjeta NO ha sido usada → guardar en BD + compra de prueba + suscripción
         else:
@@ -329,7 +334,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
                     customer=customer.id,
                     payment_method=payment_method_id,
                     confirm=True,
-                    return_url= os.environ.get("URL_SUCCESS")  # ⚡ URL de retorno
+                    return_url= url_success # ⚡ URL de retorno
                 )
 
                 # Reembolso inmediato
@@ -343,7 +348,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
                     customer=customer.id,
                     payment_method=payment_method_id,
                     confirm=True,
-                    return_url=os.environ.get("URL_SUCCESS")
+                    return_url = url_success
                 )
 
             # Obtener PriceId
