@@ -364,7 +364,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
                 expand=["latest_invoice.payment_intent"]
             )
 
-        user_created_response, status_code = create_user(cardName, email, jwt_token)
+        user_created_response, status_code = create_user(cardName, email, jwt_token, locale)
 
         client_id = user_created_response.get("client_id")  # Extrae el client_id del dict de respuesta
 

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <title>Email</title>
+</head>
+<body>
+    <section class="max-w-2xl px-6 py-8 mx-auto bg-white dark:bg-gray-900">
+        <header>
+            <a href="https://trendyup.es/en/">
+                <img class="w-auto h-7 sm:h-8" src="https://gyoipqfcjidsdyxittfx.supabase.co/storage/v1/object/sign/seguidoresgratis/TrendyUp.png" alt="TrendyUp">
+            </a>
+        </header>
+
+        <main class="mt-8">
+            <h2 class="text-gray-700 dark:text-gray-200">Hi {{ name }}!</h2>
+
+            <p class="mt-2 leading-loose text-gray-600 dark:text-gray-300">
+                These are your credentials to access TrendyUp:
+            </p>
+
+            <div class="w-fit px-5 py-2 border rounded-md bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white m-auto flex flex-col items-center mt-4 gap-x-4">
+                <p class="text-base font-semibold"><span class="font-bold">Email:</span> {{email}}</p>
+                <p class="text-base font-semibold"><span class="font-bold">Password:</span> {{password}}</p>
+            </div>
+
+            <p class="mt-4 leading-loose text-gray-600 dark:text-gray-300 pb-5">
+                If you’re ready to take your accounts to the next level, click the button below.
+            </p>
+            
+            <a href="https://trendyup.es/en/login" class="px-6 py-2 mt-6 text-sm font-medium tracking-wider capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white">
+                Log In
+            </a>
+            
+            <p class="mt-8 text-gray-600 dark:text-gray-300">
+                Thank you, <br>
+                TrendyUp Team
+            </p>
+        </main>
+        <footer class="mt-8">
+            <p class="text-gray-500 dark:text-gray-400">
+                This email was sent by <span class="text-blue-600">contact&#64;trendyup.es</span>.  
+                If you prefer not to receive this type of email, please contact us and we’ll process your request.
+            </p>
+            <p class="mt-3 text-gray-500 dark:text-gray-400">© 2025 TrendyUp. All rights reserved.</p>
+        </footer>
+    </section>
+</body>
+</html>

@@ -83,6 +83,13 @@ MESSAGES = {
     }
 }
 
+templates = {
+        "en": "emailtemplate_en.html",
+        "es": "emailtemplate_es.html",
+        "fr": "emailtemplate_fr.html",
+        "pt": "emailtemplate_pt.html",
+    }
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
@@ -106,7 +113,7 @@ def user_exists_by_email(email: str, client_supabase) -> Optional[dict]:
         .execute()
     return response.data[0] if response.data else None
 
-def create_user(customer_name: str, customer_email: str, jwt_token: str):
+def create_user(customer_name: str, customer_email: str, jwt_token: str, lang:str):
     client_supabase = get_client(jwt_token)
     user_id = client_supabase.auth.get_user().user.id
 
@@ -125,7 +132,7 @@ def create_user(customer_name: str, customer_email: str, jwt_token: str):
                 return CreateUserOut(status=False, message="Error al actualizar usuario").dict(), 500
 
             print("ENVIANDO CONTRASEÑA")
-            send_email(customer_name, customer_email, customer_password)
+            send_email(customer_name, customer_email, customer_password, lang)
             return CreateUserOut(status=True, message="Contraseña actualizada", client_id=client_id).dict(), 200
 
         else:
@@ -133,7 +140,7 @@ def create_user(customer_name: str, customer_email: str, jwt_token: str):
             if not client_id:
                 return CreateUserOut(status=False, message="Error al crear usuario").dict(), 500
 
-            send_email(customer_name, customer_email, customer_password)
+            send_email(customer_name, customer_email, customer_password, lang)
             return CreateUserOut(status=True, message="Usuario creado", client_id=client_id).dict(), 201
 
     except Exception as e:
@@ -188,8 +195,8 @@ def send_order(code_service: str, link: str, quantity: int = 1) -> Dict[str, Any
         print("error")
         return {"success": False, "order_id": None, "error": "Error al parsear JSON"}
 
-def send_email(name: str, email: str, password: str):
-    htmlContent = build_template(name, email, password)
+def send_email(name: str, email: str, password: str, lang: str):
+    htmlContent = build_template(name, email, password, lang)
 
     try:
         # Preparar parámetros para Resend
@@ -207,9 +214,11 @@ def send_email(name: str, email: str, password: str):
     except Exception as e:
         print(e)
 
-def build_template(name: str, email: str, password: str) -> str:
+def build_template(name: str, email: str, password: str, lang:str) -> str:
     env = Environment(loader=FileSystemLoader('.'))
-    template = env.get_template('emailtemplate.html')
+
+    template_name = templates.get(lang.lower(), "emailtemplate_en.html")
+    template = env.get_template(template_name)
     return template.render({"name": name, "email": email, "password": password})
 
 def insert_order(client_id:str, order_id:str, jwt_token:str, social:str, service: str, quantity:int, url: str):
