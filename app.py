@@ -273,6 +273,7 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
         pm = stripe.PaymentMethod.retrieve(payment_method_id)
         fingerprint = pm.card.fingerprint
 
+        print(fingerprint)
         now = datetime.now()
         card_used = consult_card_used(fingerprint)
 
