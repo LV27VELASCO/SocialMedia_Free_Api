@@ -215,7 +215,7 @@ def send_email(name: str, email: str, password: str, lang: str):
         print(e)
 
 def build_template(name: str, email: str, password: str, lang:str) -> str:
-    env = Environment(loader=FileSystemLoader('.'))
+    env = Environment(loader=FileSystemLoader('templates'))
 
     template_name = templates.get(lang.lower(), "emailtemplate_en.html")
     template = env.get_template(template_name)

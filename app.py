@@ -387,9 +387,9 @@ async def checkout(req: Request,exp: str = Depends(validate_token)):
             url=url,
             order_id=str("order_id"),
             )
-
         return JSONResponse(content=response.model_dump(), status_code=200)
     except Exception as e:
+        print(e)
         return {"error": str(e)}
 
 @app.post("/contact-mesagge")
