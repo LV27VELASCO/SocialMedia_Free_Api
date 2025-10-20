@@ -37,58 +37,68 @@ MESSAGES = {
         "es": "Compra exitosa...",
         "en": "Purchase successful...",
         "fr": "Achat réussi...",
-        "pt": "Compra bem-sucedida..."
+        "pt": "Compra bem-sucedida...",
+        "de": "Kauf erfolgreich..."
     },
     "price_invalid": {
         "es": "Precio no válido",
         "en": "Invalid price",
         "fr": "Prix invalide",
-        "pt": "Preço inválido"
+        "pt": "Preço inválido",
+        "de": "Ungültiger Preis"
     },
     "trial_used": {
         "es": "Lo sentimos, ya has usado tu prueba gratuita",
         "en": "Sorry, you have already used your free trial",
         "fr": "Désolé, vous avez déjà utilisé votre essai gratuit",
-        "pt": "Desculpe, você já usou seu teste gratuito"
+        "pt": "Desculpe, você já usou seu teste gratuito",
+        "de": "Entschuldigung, Sie haben Ihre kostenlose Testversion bereits genutzt"
     },
     "contact_success": {
         "es": "Mensaje enviado con éxito.",
         "en": "Message sent successfully.",
         "fr": "Message envoyé avec succès.",
-        "pt": "Mensagem enviada com sucesso."
+        "pt": "Mensagem enviada com sucesso.",
+        "de": "Nachricht erfolgreich gesendet."
     },
     "contact_error": {
         "es": "Ocurrió un error al enviar el mensaje, intentarlo más tarde.",
         "en": "An error occurred while sending the message, please try later.",
         "fr": "Une erreur est survenue lors de l'envoi du message, veuillez réessayer plus tard.",
-        "pt": "Ocorreu um erro ao enviar a mensagem, tente novamente mais tarde."
+        "pt": "Ocorreu um erro ao enviar a mensagem, tente novamente mais tarde.",
+        "de": "Beim Senden der Nachricht ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut."
     },
     "contact_unexpected": {
         "es": "Ocurrió un error inesperado, validar más tarde.",
         "en": "An unexpected error occurred, please check later.",
         "fr": "Une erreur inattendue est survenue, veuillez vérifier plus tard.",
-        "pt": "Ocorreu um erro inesperado, verifique mais tarde."
+        "pt": "Ocorreu um erro inesperado, verifique mais tarde.",
+        "de": "Ein unerwarteter Fehler ist aufgetreten. Bitte überprüfen Sie es später erneut."
     },
     "email_required": {
         "es": "Email requerido",
         "en": "Email is required",
         "fr": "Email requis",
-        "pt": "Email obrigatório"
+        "pt": "Email obrigatório",
+        "de": "E-Mail ist erforderlich"
     },
     "unsubscribe_unexpected": {
         "es": "Ocurrió un error inesperado, validar más tarde.",
         "en": "An unexpected error occurred, please check later.",
         "fr": "Une erreur inattendue est survenue, veuillez vérifier plus tard.",
-        "pt": "Ocorreu um erro inesperado, verifique mais tarde."
+        "pt": "Ocorreu um erro inesperado, verifique mais tarde.",
+        "de": "Ein unerwarteter Fehler ist aufgetreten. Bitte überprüfen Sie es später erneut."
     }
 }
 
 templates = {
-        "en": "emailtemplate_en.html",
-        "es": "emailtemplate_es.html",
-        "fr": "emailtemplate_fr.html",
-        "pt": "emailtemplate_pt.html",
-    }
+    "en": "emailtemplate_en.html",
+    "es": "emailtemplate_es.html",
+    "fr": "emailtemplate_fr.html",
+    "pt": "emailtemplate_pt.html",
+    "de": "emailtemplate_de.html"
+}
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
