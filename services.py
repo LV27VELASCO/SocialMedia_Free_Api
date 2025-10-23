@@ -196,6 +196,7 @@ def send_order(code_service: str, link: str, quantity: int = 1) -> Dict[str, Any
         response = requests.post(JUSTANOTHER_URL, data=payload, timeout=10)
         response.raise_for_status()
         data = response.json()
+        print("Respuesta JustAnother:",data)
         return {"success": True, "order_id": data.get("order"), "error": None}
 
     except requests.exceptions.RequestException as e:
