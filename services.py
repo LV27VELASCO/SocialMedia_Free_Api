@@ -392,3 +392,37 @@ def insert_unsuscribe(client_supabase, email: str,user_id:str) -> Optional[int]:
 
 def get_message(key: str, locale: str = "en") -> str:
     return MESSAGES.get(key, {}).get(locale, MESSAGES.get(key, {}).get("en", ""))
+
+def insert_pending_order(name:str, locale:str,username:str, email:str, platform:str, quantity:int, payment_id:str, jwt_token:str):
+    client_supabase = get_client(jwt_token)
+    user_id = client_supabase.auth.get_user().user.id
+    client_supabase.table("Pending_orders") \
+            .insert({
+                "name": name,
+                "username": username,
+                "locale":locale,
+                "email": email,
+                "platform": platform,
+                "quantity": quantity,
+                "payment_intent": payment_id,
+                "user_id": user_id
+            }).execute()
+    
+def mark_order_as_paid(payment_id:str, jwt_token:str):
+    client_supabase = get_client(jwt_token)
+    user_id = client_supabase.auth.get_user().user.id
+    response_base = client_supabase.table("Pending_orders").select("*").eq("payment_intent",payment_id).execute()
+
+    if len(response_base.data) > 0:
+        # ✅ actualizar
+        order = response_base.data[0]
+        order_id = response_base.data[0]["id"]
+        client_supabase.table("Pending_orders") \
+            .update({"success": True}) \
+            .eq("id", order_id) \
+            .execute()
+        print(f"[INFO] Orden {order_id} marcada como pagada.")
+        return order
+    else:
+        print(f"[WARN] No se encontró ninguna orden pendiente con payment_intent={payment_id}")
+        return None

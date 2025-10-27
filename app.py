@@ -20,8 +20,10 @@ from services import (
     get_data_user_completed,
     validate_token,
     consult_user_by_email,
+    mark_order_as_paid,
     send_email,
     unsuscribe_client,
+    insert_pending_order,
     get_message,
     CODE_SERVICE,
     ACTION_INDEX,
@@ -54,90 +56,6 @@ stripe.api_key = os.environ.get("SECRET_KEY_STRIPE")
 #resend
 resend.api_key =os.environ.get("RESEND_API_KEY")
 
-@app.post("/validate-pay-method")
-async def validate_pay_method(req: Request,exp: str = Depends(validate_token)):
-    data = await req.json()
-    payment_method_id = data.get("paymentMethodId")
-    name = data.get("name")
-    cardName = data.get("cardName")
-    email = data.get("email")
-    social = data.get("socialMedia")
-    url = data.get("url")
-    action = data.get("accion")
-
-    try:
-        # Recuperar fingerprint
-        pm = stripe.PaymentMethod.retrieve(payment_method_id)
-        fingerprint = pm.card.fingerprint
-
-        now = datetime.now()
-        card_used = consult_card_used(fingerprint)
-
-        if card_used:
-                return {"error": "Esta tarjeta ya fue usada este mes."}
-        
-        # Crear cliente y asociar método de pago
-        customer = stripe.Customer.create(
-            name=cardName.strip().lower(),
-            email=email.strip().lower(),
-            payment_method=payment_method_id,
-            invoice_settings={"default_payment_method": payment_method_id},
-        )
-
-        # Cobro de prueba 1€ (100 céntimos)
-        payment_intent = stripe.PaymentIntent.create(
-            amount=100,
-            currency="eur",
-            customer=customer.id,
-            payment_method=payment_method_id,
-            confirm=True,
-            return_url= os.environ.get("URL_SUCCESS")  # ⚡ URL de retorno
-        )
-
-        # Reembolso inmediato
-        stripe.Refund.create(payment_intent=payment_intent.id)
-
-        #Obtenemos PriceId
-        priceId = os.environ.get("PRICE_ID_STRIPE")
-
-        # Crear suscripción con trial de 14 días
-        subscription = stripe.Subscription.create(
-            customer=customer.id,
-            items=[{"price": priceId}],
-            trial_period_days=14,
-            default_payment_method=payment_method_id,
-            expand=["latest_invoice.payment_intent"]
-        )
-
-        
-        jwt_token = refresh_if_needed()
-        insert_card = insert_card_used(fingerprint,jwt_token)
-
-        user_created_response, status_code = create_user(name, email, jwt_token)
-
-        client_id = user_created_response.get("client_id")  # Extrae el client_id del dict de respuesta
-
-        # Obtener el código de servicio correspondiente
-        code_service = CODE_SERVICE[social][ACTION_INDEX[action]]
-
-        # Llamar a la función que envía la orden
-        result_order = send_order(code_service, url, 500)
-
-        order_id= result_order.get("order_id")
-
-        # guardar orden con codigo usuario
-        result_insert_order = insert_order(client_id,order_id, jwt_token, social, action, 500,url)
-
-        # response = ValidatePayResponse(
-        #     success=True,
-        #     message="Tarjeta validada con éxito, redirigiendo...",
-        #     subscription_id=subscription.id,
-        #     order_id=str(order_id),
-        #     )
-
-        return JSONResponse(content="response.model_dump()", status_code=200)
-    except Exception as e:
-        return {"error": str(e)}
 
 @app.post("/login")
 async def login(req: Request, exp: str = Depends(validate_token)):
@@ -256,141 +174,6 @@ async def recovery_password(
                  message="Ocurrió un error inesperado, validar mas tarde."
              )
         return JSONResponse(content=response.model_dump(), status_code=404)
-    
-@app.post("/checkout")
-async def checkout(req: Request,exp: str = Depends(validate_token)):
-    data = await req.json()
-    payment_method_id = data.get("paymentMethodId")
-    cardName = data.get("cardName")
-    username = data.get("username")
-    email = data.get("email")
-    platform = data.get("platform")
-    quantity = data.get("quantity")
-    locale = data.get("locale")
-
-    try:
-        # Recuperar fingerprint
-        pm = stripe.PaymentMethod.retrieve(payment_method_id)
-        fingerprint = pm.card.fingerprint
-
-        print(fingerprint)
-        now = datetime.now()
-        card_used = consult_card_used(fingerprint)
-
-        price = consult_product(platform,quantity)
-
-        if price == "":
-            return JSONResponse(content={"error": get_message("price_invalid", locale)}, status_code=400)
-
-        jwt_token = refresh_if_needed()
-
-        url_base = os.environ.get("URL_BASE_SUCCESS")
-        path = os.environ.get("URL_PATH")
-
-        url_success = f"{url_base}/{locale}/{path}"
-        
-        # Si la tarjeta ya fue usada  y no ha usado prueba gratuita → compra normal
-        if card_used:
-            if price == 0:
-                # cliente usó prueba gratuita
-                return JSONResponse(content={"error": get_message("trial_used", locale)}, status_code=400)
-            else:
-                
-                # Crear cliente y asociar método de pago
-                customer = stripe.Customer.create(
-                    name=cardName,
-                    email=email,
-                    payment_method=payment_method_id,
-                    invoice_settings={"default_payment_method": payment_method_id},
-                )
-                # Realizar compra normal
-                payment_intent = stripe.PaymentIntent.create(
-                    amount=price,
-                    currency="eur",
-                    customer=customer.id,
-                    payment_method=payment_method_id,
-                    confirm=True,
-                    return_url = url_success
-                )
-        # Si la tarjeta NO ha sido usada → guardar en BD + compra de prueba + suscripción
-        else:
-            # Guardar tarjeta en BD
-            insert_card = insert_card_used(fingerprint, jwt_token)
-            
-            # Crear cliente y asociar método de pago
-            customer = stripe.Customer.create(
-                    name=cardName,
-                    email=email,
-                    payment_method=payment_method_id,
-                    invoice_settings={"default_payment_method": payment_method_id},
-            )
-
-            if price == 0:
-                
-                # Seguidores gratis
-                # Cobro de prueba 1€ (100 céntimos)
-                payment_intent = stripe.PaymentIntent.create(
-                    amount=100,
-                    currency="eur",
-                    customer=customer.id,
-                    payment_method=payment_method_id,
-                    confirm=True,
-                    return_url= url_success # ⚡ URL de retorno
-                )
-
-                # Reembolso inmediato
-                stripe.Refund.create(payment_intent=payment_intent.id)
-            else:
-                
-                #se crea el pago normal
-                payment_intent = stripe.PaymentIntent.create(
-                    amount=price,  # precio
-                    currency="eur",
-                    customer=customer.id,
-                    payment_method=payment_method_id,
-                    confirm=True,
-                    return_url = url_success
-                )
-
-            # Obtener PriceId
-            priceId = os.environ.get("PRICE_ID_STRIPE")
-
-            # Crear suscripción con trial de 14 días
-            subscription = stripe.Subscription.create(
-                customer=customer.id,
-                items=[{"price": priceId}],
-                trial_period_days=14,
-                default_payment_method=payment_method_id,
-                expand=["latest_invoice.payment_intent"]
-            )
-
-        user_created_response, status_code = create_user(cardName, email, jwt_token, locale)
-
-        client_id = user_created_response.get("client_id")  # Extrae el client_id del dict de respuesta
-
-        # Obtener el código de servicio correspondiente
-        code_service = CODE_SERVICE[platform][ACTION_INDEX["followers"]]
-        
-        url = URL_SERVICE[platform] + username
-
-        # Llamar a la función que envía la orden
-        result_order = send_order(code_service, url, quantity)
-
-        order_id= result_order.get("order_id")
-
-        # guardar orden con codigo usuario
-        result_insert_order = insert_order(client_id,order_id, jwt_token, platform, "followers", quantity,url)
-
-        response = ValidatePayResponse(
-            success=True,
-            message=get_message("success_purchase", locale),
-            url=url,
-            order_id=str("order_id"),
-            )
-        return JSONResponse(content=response.model_dump(), status_code=200)
-    except Exception as e:
-        print(e)
-        return {"error": str(e)}
 
 @app.post("/contact-mesagge")
 async def recovery_password(
@@ -454,3 +237,132 @@ async def recovery_password(
         print(e)
         response = NewOrderResponse(message=get_message("unsubscribe_unexpected", locale))
         return JSONResponse(content=response.model_dump(), status_code=404)
+
+@app.post("/checkout")
+async def checkout(req: Request, exp: str = Depends(validate_token)):
+    data = await req.json()
+    payment_method_id = data.get("paymentMethodId")
+    name = data.get("cardName")
+    username = data.get("username")
+    email = data.get("email")
+    platform = data.get("platform")
+    quantity = data.get("quantity")
+    locale = data.get("locale")
+
+    try:
+        # 🔍 Recuperar fingerprint de la tarjeta
+        pm = stripe.PaymentMethod.retrieve(payment_method_id)
+        fingerprint = pm.card.fingerprint
+
+        # ✅ Verificar si ya usó prueba gratuita
+        card_used = consult_card_used(fingerprint)
+
+        # Calcular precio del producto
+        price = consult_product(platform, quantity)
+        if price == "":
+            return JSONResponse(content={"error": get_message("price_invalid", locale)}, status_code=400)
+
+        jwt_token = refresh_if_needed()
+        url_base = os.environ.get("URL_BASE_SUCCESS")
+        path = os.environ.get("URL_PATH")
+        url_success = f"{url_base}/{locale}/{path}"
+
+        # 🚫 Si ya usó la tarjeta y el precio = 0 (prueba)
+        if card_used and price == 0:
+            return JSONResponse(
+                content={"error": get_message("trial_used", locale)},
+                status_code=400,
+            )
+
+        # 🧾 Crear cliente
+        customer = stripe.Customer.create(
+            name=name,
+            email=email,
+            payment_method=payment_method_id,
+            invoice_settings={"default_payment_method": payment_method_id},
+        )
+
+        # 💳 Crear PaymentIntent (solo se confirma en frontend)
+        # Si nunca usó prueba y el precio = 0 → cobro de prueba de 1€
+        amount = 100 if (not card_used and price == 0) else price
+
+        payment_intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency="eur",
+            customer=customer.id,
+            payment_method=payment_method_id,
+            confirmation_method="automatic",
+        )
+
+        # 🗄️ Guardar que la tarjeta fue usada (solo si aún no estaba)
+        if not card_used:
+            insert_card_used(fingerprint, jwt_token)
+
+        # ✅ Si es prueba gratuita → crear suscripción + reembolso automático
+        if not card_used and price == 0:
+            priceId = os.environ.get("PRICE_ID_STRIPE")
+
+            subscription = stripe.Subscription.create(
+                customer=customer.id,
+                items=[{"price": priceId}],
+                trial_period_days=14,
+                default_payment_method=payment_method_id,
+                expand=["latest_invoice.payment_intent"]
+            )
+
+        # Guardar pedido pendiente en tu BD
+        insert_pending_order(name,locale, username, email, platform, quantity, payment_intent.id, jwt_token)
+
+        return JSONResponse({
+            "clientSecret": payment_intent.client_secret,
+        })
+
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={"error": str(e)}, status_code=400)
+
+@app.post("/webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    print("Webhook iniciado")
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, os.environ.get("WEBHOOK_SECRET")
+        )
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid signature"})
+
+    if event["type"] == "payment_intent.succeeded":
+        payment_intent = event["data"]["object"]
+        payment_id = payment_intent["id"]
+        
+        print("Pago exitoso para: ",payment_id)
+        jwt_token = refresh_if_needed()
+
+        # Marcar en tu BD como pagado
+        order = mark_order_as_paid(payment_id,jwt_token)
+        name = order["name"]
+        email = order["email"]
+        platform = order["platform"]
+        username = order["username"]
+        quantity = order["quantity"]
+        locale = order["locale"]
+
+        if quantity < 500:
+            print("Reembolso automático procesado (prueba gratuita)")
+            stripe.Refund.create(payment_intent=payment_id)
+
+        user_created_response, status_code = create_user(name, email, jwt_token, locale)
+        client_id = user_created_response.get("client_id")
+
+        code_service = CODE_SERVICE[platform][ACTION_INDEX["followers"]]
+        url = URL_SERVICE[platform] + username
+
+        result_order = send_order(code_service, url, quantity)
+        order_id= result_order.get("order_id")
+
+        insert_order(client_id, order_id, jwt_token, platform, "followers", quantity, url)
+
+    return JSONResponse(status_code=200, content={"success": True})
