@@ -263,9 +263,6 @@ async def checkout(req: Request, exp: str = Depends(validate_token)):
             return JSONResponse(content={"error": get_message("price_invalid", locale)}, status_code=400)
 
         jwt_token = refresh_if_needed()
-        url_base = os.environ.get("URL_BASE_SUCCESS")
-        path = os.environ.get("URL_PATH")
-        url_success = f"{url_base}/{locale}/{path}"
 
         # 🚫 Si ya usó la tarjeta y el precio = 0 (prueba)
         if card_used and price == 0:
