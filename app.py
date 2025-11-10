@@ -22,7 +22,9 @@ from services import (
     consult_user_by_email,
     mark_order_as_paid,
     send_email,
-    unsuscribe_client,
+    insert_unsubscribe,
+    unsubscribe_exists_by_email,
+    user_exists_by_email,
     insert_pending_order,
     get_message,
     consult_order_pending,
@@ -46,7 +48,7 @@ app.add_middleware(
         "https://trendyup.site",
     ],
     allow_methods=["GET", "POST","OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization", "x-api-key"],
     allow_credentials=True,
 )
 
@@ -177,8 +179,14 @@ async def recovery_password(
         return JSONResponse(content=response.model_dump(), status_code=404)
 
 @app.post("/contact-mesagge")
-async def recovery_password(
+async def contact(
     req: Request, exp: str = Depends(validate_token)):
+    api_key = req.headers.get("X-API-KEY")
+    API_SECRET = os.environ.get("SECRET_API")
+    
+    if api_key != API_SECRET:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+    
     data = await req.json()
     name = data.get("name")
     email = data.get("email")
@@ -213,27 +221,39 @@ async def recovery_password(
         response = NewOrderResponse(message=get_message("contact_unexpected", locale))
         return JSONResponse(content=response.model_dump(), status_code=404)
 
-@app.post("/unsuscribe")
-async def recovery_password(
+@app.post("/unsubscribe")
+async def unsubscribe(
     req: Request, exp: str = Depends(validate_token)):
     data = await req.json()
+    api_key = req.headers.get("X-API-KEY")
+    API_SECRET = os.environ.get("SECRET_API")
+    
+    if api_key != API_SECRET:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=403)
+    
     email = data.get("email")
     locale = data.get("locale")
     try:
-       
-       if not email:
+
+        if not email:
            return JSONResponse(content={"error": get_message("email_required", locale)}, status_code=400)
-       
-       jwt_token = refresh_if_needed()
-       user_unsuscribe_response, status_code = unsuscribe_client(email, jwt_token)
-       status = user_unsuscribe_response.get("status")
-       message_res = user_unsuscribe_response.get("message")
-       if status:
-           response = NewOrderResponse(message=message_res)
-           return JSONResponse(content=response.model_dump(), status_code=200)
-       else:
-            response = NewOrderResponse(message=message_res)
-            return JSONResponse(content=response.model_dump(), status_code=400)
+        
+        print("aqui ok")
+        jwt_token = refresh_if_needed()
+        client_supabase = get_client(jwt_token)
+        if user_exists_by_email(email,client_supabase):
+            if unsubscribe_exists_by_email(client_supabase,email):
+                status = 404
+                response = NewOrderResponse(message=get_message("no_active_subscription", locale))
+            else:
+                insert_unsubscribe(jwt_token,email.lower())
+                status = 200
+                response = NewOrderResponse(message=get_message("unsubscribe_success", locale))
+        else:
+            status = 404
+            response = NewOrderResponse(message=get_message("no_active_subscription", locale))
+
+        return JSONResponse(content=response.model_dump(), status_code=status)
     except Exception as e:
         print(e)
         response = NewOrderResponse(message=get_message("unsubscribe_unexpected", locale))
@@ -358,7 +378,7 @@ async def stripe_webhook(request: Request):
             username = order["username"]
             quantity = order["quantity"]
             locale = order["locale"]
-            
+
             if quantity < 500:
                 print("Reembolso automático procesado (prueba gratuita)")
                 stripe.Refund.create(payment_intent=payment_id)

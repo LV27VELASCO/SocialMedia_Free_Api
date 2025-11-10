@@ -88,6 +88,20 @@ MESSAGES = {
         "fr": "Une erreur inattendue est survenue, veuillez vérifier plus tard.",
         "pt": "Ocorreu um erro inesperado, verifique mais tarde.",
         "de": "Ein unerwarteter Fehler ist aufgetreten. Bitte überprüfen Sie es später erneut."
+    },
+    "no_active_subscription": {
+    "es": "El correo electrónico no cuenta con una suscripción activa.",
+    "en": "The email does not have an active subscription.",
+    "fr": "L'adresse e-mail n'a pas d'abonnement actif.",
+    "pt": "O e-mail não possui uma assinatura ativa.",
+    "de": "Die E-Mail-Adresse hat kein aktives Abonnement."
+    },
+    "unsubscribe_success": {
+        "es": "Suscripción cancelada con éxito.",
+        "en": "Subscription cancelled successfully.",
+        "fr": "Abonnement annulé avec succès.",
+        "pt": "Assinatura cancelada com sucesso.",
+        "de": "Abonnement erfolgreich gekündigt."
     }
 }
 
@@ -116,12 +130,15 @@ def generate_password(length: int = 12) -> str:
     return ''.join(random.choice(chars) for _ in range(length))
 
 def user_exists_by_email(email: str, client_supabase) -> Optional[dict]:
-    response = client_supabase.table("Client") \
-        .select("id") \
-        .eq("email", email) \
-        .limit(1) \
-        .execute()
-    return response.data[0] if response.data else None
+    try:
+        response = client_supabase.table("Client") \
+            .select("id") \
+            .eq("email", email) \
+            .limit(1) \
+            .execute()
+        return response.data[0] if response.data else None
+    except Exception as e:
+        print(e)
 
 def create_user(customer_name: str, customer_email: str, jwt_token: str, lang:str):
     client_supabase = get_client(jwt_token)
@@ -366,29 +383,30 @@ def consult_product(plataform: str, quantity:str) -> bool:
     # ✅ True si fue actualizado hace menos de un mes
     return price
 
-def unsuscribe_client(customer_email: str, jwt_token: str):
+def insert_unsubscribe(customer_email: str, jwt_token: str):
     client_supabase = get_client(jwt_token)
     user_id = client_supabase.auth.get_user().user.id
     customer_email = customer_email.lower()
 
     try:
-        client_id = insert_unsuscribe(client_supabase,customer_email,user_id)
+        client_id = insert_unsubscribe(client_supabase,customer_email,user_id)
         if not client_id:
             return CreateUserOut(status=False, message="Ocurrió un error al procesar petición, intentarlo mas tarde.").dict(), 400
         else:
             return CreateUserOut(status=True, message="Suscripción cancelada con éxito").dict(), 200
 
     except Exception as e:
-        print(f"[unsuscribe] Error: {e}")
+        print(f"[unsubscribe] Error: {e}")
         return CreateUserOut(status=False, message="Ocurrió un error, intentarlo más tarde").dict(), 500
     
-def insert_unsuscribe(client_supabase, email: str,user_id:str) -> Optional[int]:
-    response = client_supabase.table("Unsuscribe")\
-        .insert({
-            "email": email,
-            "user_id":user_id
-        }).execute()
-    return response.data[0]['id'] if response.data else None
+def insert_unsubscribe(jwt_token, email) -> Optional[int]:
+    try:
+        client_supabase = get_client(jwt_token)
+        user_uuid = client_supabase.auth.get_user().user.id
+        unsubscribe =  client_supabase.table("Unsubscribe").insert({"email":email,"user_uuid":user_uuid}).execute()
+        return unsubscribe
+    except Exception as e:
+        print(f"[insertUnsubscribe] Error: {e}")
 
 def get_message(key: str, locale: str = "en") -> str:
     return MESSAGES.get(key, {}).get(locale, MESSAGES.get(key, {}).get("en", ""))
@@ -432,3 +450,11 @@ def consult_order_pending(payment_id:str, jwt_token:str):
     response_base = client_supabase.table("Pending_orders").select("id").eq("payment_intent",payment_id).eq("success",False).execute()
     print(response_base)
     return response_base.data[0] if response_base.data else None
+
+def unsubscribe_exists_by_email(client_supabase, email):
+    # First get the location requests for this user
+    try:
+        unsubscribe =  client_supabase.table("Unsubscribe").select({"email":email}).execute()
+        return unsubscribe.data[0] if unsubscribe.data else None
+    except Exception as e:
+        print(f"[existUnsubscribe] Error: {e}")
