@@ -328,7 +328,7 @@ async def checkout(req: Request, exp: str = Depends(validate_token)):
             subscription = stripe.Subscription.create(
                 customer=customer.id,
                 items=[{"price": priceId}],
-                trial_period_days=14,
+                trial_period_days=7,
                 default_payment_method=payment_method_id,
                 expand=["latest_invoice.payment_intent"]
             )
