@@ -426,3 +426,9 @@ def mark_order_as_paid(payment_id:str, jwt_token:str):
     else:
         print(f"[WARN] No se encontró ninguna orden pendiente con payment_intent={payment_id}")
         return None
+
+def consult_order_pending(payment_id:str, jwt_token:str):
+    client_supabase = get_client(jwt_token)
+    response_base = client_supabase.table("Pending_orders").select("id").eq("payment_intent",payment_id).eq("success",False).execute()
+    print(response_base)
+    return response_base.data[0] if response_base.data else None

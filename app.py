@@ -25,6 +25,7 @@ from services import (
     unsuscribe_client,
     insert_pending_order,
     get_message,
+    consult_order_pending,
     CODE_SERVICE,
     ACTION_INDEX,
     URL_SERVICE
@@ -248,57 +249,62 @@ async def checkout(req: Request, exp: str = Depends(validate_token)):
     platform = data.get("platform")
     quantity = data.get("quantity")
     locale = data.get("locale")
-
+    
     try:
-        # 🔍 Recuperar fingerprint de la tarjeta
+        # Recuperar fingerprint de la tarjeta
         pm = stripe.PaymentMethod.retrieve(payment_method_id)
         fingerprint = pm.card.fingerprint
-
-        # ✅ Verificar si ya usó prueba gratuita
+        
+        # Verificar si ya usó prueba gratuita
         card_used = consult_card_used(fingerprint)
-
+        
         # Calcular precio del producto
         price = consult_product(platform, quantity)
         if price == "":
-            return JSONResponse(content={"error": get_message("price_invalid", locale)}, status_code=400)
-
-        jwt_token = refresh_if_needed()
-
-        # 🚫 Si ya usó la tarjeta y el precio = 0 (prueba)
+            return JSONResponse(
+                content={"error": get_message("price_invalid", locale)}, 
+                status_code=400
+            )
+        
+        # Determinar si es prueba gratuita
+        is_free_trial = (not card_used and price == 0)
+        
+        # Bloquear si ya usó la prueba gratuita
         if card_used and price == 0:
             return JSONResponse(
                 content={"error": get_message("trial_used", locale)},
-                status_code=400,
+                status_code=400
             )
-
-        # 🧾 Crear cliente
+        
+        jwt_token = refresh_if_needed()
+        
+        # Crear cliente en Stripe
         customer = stripe.Customer.create(
             name=name,
             email=email,
             payment_method=payment_method_id,
-            invoice_settings={"default_payment_method": payment_method_id},
+            invoice_settings={"default_payment_method": payment_method_id}
         )
-
-        # 💳 Crear PaymentIntent (solo se confirma en frontend)
-        # Si nunca usó prueba y el precio = 0 → cobro de prueba de 1€
-        amount = 100 if (not card_used and price == 0) else price
-
+        
+        # Calcular monto a cobrar (1€ para validar tarjeta en prueba gratuita)
+        amount = 100 if is_free_trial else price
+        
+        # Crear PaymentIntent
         payment_intent = stripe.PaymentIntent.create(
             amount=amount,
             currency="eur",
             customer=customer.id,
             payment_method=payment_method_id,
-            confirmation_method="automatic",
+            confirmation_method="automatic"
         )
-
-        # 🗄️ Guardar que la tarjeta fue usada (solo si aún no estaba)
+        
+        # Registrar tarjeta como usada (solo primera vez)
         if not card_used:
             insert_card_used(fingerprint, jwt_token)
-
-        # ✅ Si es prueba gratuita → crear suscripción + reembolso automático
-        if not card_used and price == 0:
+        
+        # Crear suscripción solo para prueba gratuita
+        if is_free_trial:
             priceId = os.environ.get("PRICE_ID_STRIPE")
-
             subscription = stripe.Subscription.create(
                 customer=customer.id,
                 items=[{"price": priceId}],
@@ -306,17 +312,21 @@ async def checkout(req: Request, exp: str = Depends(validate_token)):
                 default_payment_method=payment_method_id,
                 expand=["latest_invoice.payment_intent"]
             )
-
-        # Guardar pedido pendiente en tu BD
-        insert_pending_order(name,locale, username, email, platform, quantity, payment_intent.id, jwt_token)
-
+        
+        # Guardar pedido pendiente
+        insert_pending_order(
+            name, locale, username, email, platform, 
+            quantity, payment_intent.id, jwt_token
+        )
+        
         return JSONResponse({
-            "clientSecret": payment_intent.client_secret,
+            "clientSecret": payment_intent.client_secret
         })
-
+        
     except Exception as e:
         print(e)
         return JSONResponse(content={"error": str(e)}, status_code=400)
+
 
 @app.post("/webhook")
 async def stripe_webhook(request: Request):
@@ -338,28 +348,30 @@ async def stripe_webhook(request: Request):
         print("Pago exitoso para: ",payment_id)
         jwt_token = refresh_if_needed()
 
-        # Marcar en tu BD como pagado
-        order = mark_order_as_paid(payment_id,jwt_token)
-        name = order["name"]
-        email = order["email"]
-        platform = order["platform"]
-        username = order["username"]
-        quantity = order["quantity"]
-        locale = order["locale"]
+        if consult_order_pending(payment_id,jwt_token):
 
-        if quantity < 500:
-            print("Reembolso automático procesado (prueba gratuita)")
-            stripe.Refund.create(payment_intent=payment_id)
+             # Marcar en tu BD como pagado
+            order = mark_order_as_paid(payment_id,jwt_token)
+            name = order["name"]
+            email = order["email"]
+            platform = order["platform"]
+            username = order["username"]
+            quantity = order["quantity"]
+            locale = order["locale"]
+            
+            if quantity < 500:
+                print("Reembolso automático procesado (prueba gratuita)")
+                stripe.Refund.create(payment_intent=payment_id)
 
-        user_created_response, status_code = create_user(name, email, jwt_token, locale)
-        client_id = user_created_response.get("client_id")
+            user_created_response, status_code = create_user(name, email, jwt_token, locale)
+            client_id = user_created_response.get("client_id")
 
-        code_service = CODE_SERVICE[platform][ACTION_INDEX["followers"]]
-        url = URL_SERVICE[platform] + username
+            code_service = CODE_SERVICE[platform][ACTION_INDEX["followers"]]
+            url = URL_SERVICE[platform] + username
 
-        result_order = send_order(code_service, url, quantity)
-        order_id= result_order.get("order_id")
+            result_order = send_order(code_service, url, quantity)
+            order_id= result_order.get("order_id")
 
-        insert_order(client_id, order_id, jwt_token, platform, "followers", quantity, url)
+            insert_order(client_id, order_id, jwt_token, platform, "followers", quantity, url)
 
     return JSONResponse(status_code=200, content={"success": True})
