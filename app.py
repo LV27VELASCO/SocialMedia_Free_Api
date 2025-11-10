@@ -42,7 +42,7 @@ app.add_middleware(
      allow_origins=[
         "http://localhost:4321",
         "https://trendyup.es",
-        "https://www.trendyup.es"
+        "https://trendyup.site",
     ],
     allow_methods=["GET", "POST","OPTIONS"],
     allow_headers=["*"],
