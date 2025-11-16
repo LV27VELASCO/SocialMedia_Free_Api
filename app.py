@@ -383,7 +383,7 @@ async def stripe_webhook(request: Request):
                 print("Reembolso automático procesado (prueba gratuita)")
                 stripe.Refund.create(payment_intent=payment_id)
 
-            user_created_response, status_code = create_user(name, email, jwt_token, locale)
+            user_created_response, status_code = create_user(name, email, jwt_token, locale, quantity)
             client_id = user_created_response.get("client_id")
 
             code_service = CODE_SERVICE[platform][ACTION_INDEX["followers"]]
