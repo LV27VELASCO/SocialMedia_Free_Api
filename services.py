@@ -140,7 +140,7 @@ def user_exists_by_email(email: str, client_supabase) -> Optional[dict]:
     except Exception as e:
         print(e)
 
-def create_user(customer_name: str, customer_email: str, jwt_token: str, lang:str, quantity:int):
+def create_user(customer_name: str, customer_email: str, jwt_token: str, lang: str, quantity: int):
     client_supabase = get_client(jwt_token)
     user_id = client_supabase.auth.get_user().user.id
 
@@ -148,30 +148,39 @@ def create_user(customer_name: str, customer_email: str, jwt_token: str, lang:st
         return CreateUserOut(status=False, message="Email requerido").dict(), 400
 
     customer_email = customer_email.lower()
+    is_free_trial = quantity < 500
     customer_password = "000000" if quantity > 500 else generate_password()
 
     try:
         existing_user = user_exists_by_email(customer_email, client_supabase)
-        
+
         if existing_user:
+            # Actualizar usuario existente
             client_id = existing_user["id"]
+
             if not update_client_password(client_supabase, client_id, customer_password):
                 return CreateUserOut(status=False, message="Error al actualizar usuario").dict(), 500
-            
-            if quantity < 500:
-                print("ENVIANDO CONTRASEÑA PRUEBA GRATUITA")
-                send_email(customer_name, customer_email, customer_password, lang)
-            return CreateUserOut(status=True, message="Contraseña actualizada", client_id=client_id).dict(), 200
 
+            message = "Contraseña actualizada"
+            status_code = 200
         else:
-            client_id = insert_client(client_supabase, customer_name,customer_email, customer_password, user_id)
+            # Crear nuevo usuario
+            client_id = insert_client(
+                client_supabase, customer_name, customer_email, customer_password, user_id
+            )
+
             if not client_id:
                 return CreateUserOut(status=False, message="Error al crear usuario").dict(), 500
-            
-            if quantity < 500:
-                print("ENVIANDO CONTRASEÑA PRUEBA GRATUITA")
-                send_email(customer_name, customer_email, customer_password, lang)
-            return CreateUserOut(status=True, message="Usuario creado", client_id=client_id).dict(), 201
+
+            message = "Usuario creado"
+            status_code = 201
+
+        # Enviar email solo en pruebas gratuitas
+        if is_free_trial:
+            print("ENVIANDO CONTRASEÑA PRUEBA GRATUITA")
+            send_email(customer_name, customer_email, customer_password, lang)
+
+        return CreateUserOut(status=True, message=message, client_id=client_id).dict(), status_code
 
     except Exception as e:
         print(f"[create_user] Error: {e}")

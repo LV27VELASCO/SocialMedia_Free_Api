@@ -379,19 +379,37 @@ async def stripe_webhook(request: Request):
             quantity = order["quantity"]
             locale = order["locale"]
 
-            if quantity < 500:
+            is_free_tier = quantity < 500
+
+            if is_free_tier:
                 print("Reembolso automático procesado (prueba gratuita)")
                 stripe.Refund.create(payment_intent=payment_id)
 
-            user_created_response, status_code = create_user(name, email, jwt_token, locale, quantity)
+            # Crear usuario
+            user_created_response, status_code = create_user(
+                name, email, jwt_token, locale, quantity
+            )
             client_id = user_created_response.get("client_id")
 
+            # Preparar datos del pedido
             code_service = CODE_SERVICE[platform][ACTION_INDEX["followers"]]
             url = URL_SERVICE[platform] + username
 
-            result_order = send_order(code_service, url, quantity)
-            order_id= result_order.get("order_id")
+            # Procesar pedido (solo si no es prueba gratuita)
+            order_id = "000000000"
+            if is_free_tier:
+                result_order = send_order(code_service, url, quantity)
+                order_id = result_order.get("order_id")
 
-            insert_order(client_id, order_id, jwt_token, platform, "followers", quantity, url)
+            # Guardar en base de datos
+            insert_order(
+                client_id,
+                order_id,
+                jwt_token,
+                platform,
+                "followers",
+                quantity,
+                url
+            )
 
     return JSONResponse(status_code=200, content={"success": True})
