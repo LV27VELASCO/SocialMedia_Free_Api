@@ -1,5 +1,5 @@
 import os
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from jwt import ExpiredSignatureError, PyJWTError, decode, encode
 import requests
@@ -140,7 +140,7 @@ def user_exists_by_email(email: str, client_supabase) -> Optional[dict]:
     except Exception as e:
         print(e)
 
-def create_user(customer_name: str, customer_email: str, jwt_token: str, lang: str, quantity: int):
+def create_user(customer_name: str, customer_email: str, jwt_token: str, lang: str, quantity: int, ip: str):
     client_supabase = get_client(jwt_token)
     user_id = client_supabase.auth.get_user().user.id
 
@@ -166,7 +166,7 @@ def create_user(customer_name: str, customer_email: str, jwt_token: str, lang: s
         else:
             # Crear nuevo usuario
             client_id = insert_client(
-                client_supabase, customer_name, customer_email, customer_password, user_id
+                client_supabase, customer_name, customer_email, customer_password, ip, user_id
             )
 
             if not client_id:
@@ -197,12 +197,13 @@ def update_client_password(client_supabase, client_id: int, new_password: str) -
         .execute()
     return bool(response.data)
 
-def insert_client(client_supabase, name:str, email: str, password: str, user_id: str) -> Optional[int]:
+def insert_client(client_supabase, name:str, email: str, password: str, ip:str, user_id: str) -> Optional[int]:
     response = client_supabase.table("Client") \
         .insert({
             "name": name,
             "email": email,
             "password": password,
+            "ip": ip,
             "user_id": user_id
         }).execute()
     return response.data[0]['id'] if response.data else None
@@ -423,7 +424,7 @@ def insert_unsubscribe(jwt_token, email) -> Optional[int]:
 def get_message(key: str, locale: str = "en") -> str:
     return MESSAGES.get(key, {}).get(locale, MESSAGES.get(key, {}).get("en", ""))
 
-def insert_pending_order(name:str, locale:str,username:str, email:str, platform:str, quantity:int, payment_id:str, jwt_token:str):
+def insert_pending_order(name:str, locale:str,username:str, email:str, platform:str, quantity:int, payment_id:str, ip: str,jwt_token:str):
     client_supabase = get_client(jwt_token)
     user_id = client_supabase.auth.get_user().user.id
     client_supabase.table("Pending_orders") \
@@ -435,6 +436,7 @@ def insert_pending_order(name:str, locale:str,username:str, email:str, platform:
                 "platform": platform,
                 "quantity": quantity,
                 "payment_intent": payment_id,
+                "ip": ip,
                 "user_id": user_id
             }).execute()
     
@@ -470,3 +472,12 @@ def unsubscribe_exists_by_email(client_supabase, email):
         return unsubscribe.data[0] if unsubscribe.data else None
     except Exception as e:
         print(f"[existUnsubscribe] Error: {e}")
+
+def get_client_ip(req: Request):
+    # Si viene desde un proxy (Render), vendrá aquí
+    x_forwarded_for = req.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+
+    # Si estás en local o no hay proxy
+    return req.client.host

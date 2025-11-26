@@ -26,6 +26,7 @@ from services import (
     unsubscribe_exists_by_email,
     user_exists_by_email,
     insert_pending_order,
+    get_client_ip,
     get_message,
     consult_order_pending,
     CODE_SERVICE,
@@ -109,7 +110,7 @@ async def new_order(id_client: str = Depends(get_current_user)):
             social = data_user[0]["social"]
             action = data_user[0]["service"]
             url = data_user[0]["url"]
-            quantity = 500 #por defecto
+            quantity = 1000 #por defecto
             
             # Obtener el código de servicio correspondiente
             code_service = CODE_SERVICE[social][ACTION_INDEX[action]]
@@ -269,6 +270,7 @@ async def checkout(req: Request, exp: str = Depends(validate_token)):
     platform = data.get("platform")
     quantity = data.get("quantity")
     locale = data.get("locale")
+    client_ip = get_client_ip(req)
     
     try:
         # Recuperar fingerprint de la tarjeta
@@ -336,7 +338,7 @@ async def checkout(req: Request, exp: str = Depends(validate_token)):
         # Guardar pedido pendiente
         insert_pending_order(
             name, locale, username, email, platform, 
-            quantity, payment_intent.id, jwt_token
+            quantity, payment_intent.id, client_ip, jwt_token
         )
         
         return JSONResponse({
@@ -378,6 +380,7 @@ async def stripe_webhook(request: Request):
             username = order["username"]
             quantity = order["quantity"]
             locale = order["locale"]
+            ip = order["ip"]
 
             is_free_tier = quantity < 500
 
@@ -387,7 +390,7 @@ async def stripe_webhook(request: Request):
 
             # Crear usuario
             user_created_response, status_code = create_user(
-                name, email, jwt_token, locale, quantity
+                name, email, jwt_token, locale, quantity,ip
             )
             client_id = user_created_response.get("client_id")
 
