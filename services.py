@@ -468,8 +468,8 @@ def consult_order_pending(payment_id:str, jwt_token:str):
 def unsubscribe_exists_by_email(client_supabase, email):
     # First get the location requests for this user
     try:
-        unsubscribe =  client_supabase.table("Unsubscribe").select({"email":email}).execute()
-        return unsubscribe.data[0] if unsubscribe.data else None
+        unsubscribe =  client_supabase.table("Unsubscribe").select("*").eq("email",email).limit(1).execute()
+        return unsubscribe.data
     except Exception as e:
         print(f"[existUnsubscribe] Error: {e}")
 

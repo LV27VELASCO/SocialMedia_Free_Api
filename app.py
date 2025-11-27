@@ -243,7 +243,8 @@ async def unsubscribe(
         jwt_token = refresh_if_needed()
         client_supabase = get_client(jwt_token)
         if user_exists_by_email(email,client_supabase):
-            if unsubscribe_exists_by_email(client_supabase,email):
+            unsubscribe = unsubscribe_exists_by_email(client_supabase, email)
+            if not unsubscribe:
                 status = 404
                 response = NewOrderResponse(message=get_message("no_active_subscription", locale))
             else:
